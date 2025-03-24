@@ -1,0 +1,7 @@
+ipykernel
+haystack-ai
+ollama-haystack
+pgvector-haystack
+edgartools
+dspy
+python_dotenv
