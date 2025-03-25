@@ -23,8 +23,8 @@ if running_in_spaces:
     print("🔍 Detected: Running in Hugging Face Spaces")
     dspy.configure(
         lm=LM(
-            model='SUFE-AIFLM-Lab/Fin-R1',
-            api_base='https://api-inference.huggingface.co/models',
+            model='huggingface/SUFE-AIFLM-Lab/Fin-R1',
+            api_base='https://api-inference.huggingface.co',
             api_key=os.getenv("HF_API_KEY")
         )
     )
