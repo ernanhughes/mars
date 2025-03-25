@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 import pandas as pd
 import socket
 import dspy
@@ -15,9 +14,6 @@ logging.basicConfig(level=logging.DEBUG,
                     handlers=[logging.FileHandler('mars.log', 'w', 'utf-8')])
 
 logger = logging.getLogger(__name__)
-
-# ==== SETUP ====
-load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 # ==== DSPy CONFIG ====
@@ -162,8 +158,7 @@ def build_analysis_prompt(ticker: str, markdown_list: list[str]) -> str:
 # ==== EDGAR FETCHER ====
 class EDGARFetcher:
     def __init__(self, ticker: str, form: str = "10-Q", n: int = 3):
-        self.pg_conn_str = os.getenv("PG_CONN_STR")
-        self.identity = os.getenv("IDENTITY")
+        self.identity = "marsgradioapp@gmail.com"
         self.ticker = ticker
         self.form = form
         self.n = n
@@ -179,7 +174,8 @@ class EDGARFetcher:
             statements.append(self.rich_report_to_text(df))
         return statements
 
-    def rich_report_to_text(self, df: pd.DataFrame) -> str:
+    @staticmethod
+    def rich_report_to_text(df: pd.DataFrame) -> str:
         lines = []
         for _, row in df.iterrows():
             label = row.get("original_label") or row.get("label") or row.get("concept")
@@ -220,4 +216,3 @@ def analyze_ticker(ticker: str):
 
     return result
 
-analyze_ticker("MSFT")

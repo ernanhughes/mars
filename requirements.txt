@@ -1,6 +1,5 @@
 edgartools
 dspy
-python_dotenv
 pandas
 rich
 gradio
