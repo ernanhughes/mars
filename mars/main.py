@@ -2,8 +2,11 @@
 
 import os
 from datetime import datetime
+import logging
 from dotenv import load_dotenv
 import pandas as pd
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 import dspy
 from dspy import Signature, InputField, OutputField, Module, Predict, ChainOfThought
@@ -24,12 +27,58 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
+# ==== DATABASE ====
+PG_CONN_STR = os.getenv("PG_CONN_STR")
+Base = declarative_base()
+engine = create_engine(PG_CONN_STR)
+SessionLocal = sessionmaker(bind=engine)
+
+class MarsStep(Base):
+    __tablename__ = "mars_steps"
+    id = Column(Integer, primary_key=True, index=True)
+    input_question = Column(Text)
+    teacher_question = Column(Text)
+    critique = Column(Text)
+    final_question = Column(Text)
+    final_answer = Column(Text)
+    teacher_latency = Column(Float)
+    critic_latency = Column(Float)
+    student_latency = Column(Float)
+    teacher_agent = Column(String)
+    critic_agent = Column(String)
+    student_agent = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    trace = Column(Text)
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+# ==== LOGGING ====
+def log_mars_step(input_q, teacher_q, critique, final_q, final_a,
+                  t_latency=None, c_latency=None, s_latency=None,
+                  t_agent="teacher", c_agent="critic", s_agent="student",
+                  trace_json=None):
+    session = SessionLocal()
+    step = MarsStep(
+        input_question=input_q,
+        teacher_question=teacher_q,
+        critique=critique,
+        final_question=final_q,
+        final_answer=final_a,
+        teacher_latency=t_latency,
+        critic_latency=c_latency,
+        student_latency=s_latency,
+        teacher_agent=t_agent,
+        critic_agent=c_agent,
+        student_agent=s_agent,
+        trace=trace_json
+    )
+    session.add(step)
+    session.commit()
+    session.close()
+
 # ==== DSPy CONFIG ====
-dspy.configure(
-    lm=dspy.LM('ollama_chat/hf.co/ernanhughes/Fin-R1-Q8_0-GGUF',
-               api_base='http://localhost:11434',
-               api_key='')
-)
+dspy.configure(lm=dspy.LM('ollama_chat/hf.co/ernanhughes/Fin-R1-Q8_0-GGUF', api_base='http://localhost:11434', api_key=''))
 
 # ==== DSPy SIGNATURES ====
 class AnalyzeMargins(Signature):
@@ -152,6 +201,7 @@ class EDGARFetcher:
     def __init__(self, ticker: str, form: str = "10-Q", n: int = 3):
         self.pg_conn_str = os.getenv("PG_CONN_STR")
         self.identity = os.getenv("IDENTITY")
+        self.engine = create_engine(self.pg_conn_str)
         self.ticker = ticker
         self.form = form
         self.n = n
@@ -179,17 +229,11 @@ class EDGARFetcher:
                 lines.append(f"{label}: " + " | ".join(values))
         return "\n".join(lines)
 
-def analyze_ticker(ticker: str):
-    """
-    Run the full MARS analysis pipeline for a given stock ticker.
+# ==== RUN PIPELINE ====
+if __name__ == "__main__":
+    init_db()
 
-    Args:
-        ticker (str): Stock symbol (e.g. 'TSLA')
-
-    Returns:
-        dict: MARS pipeline result containing plan, teacher_question, critique,
-              final_question, signal, and rationale
-    """
+    ticker = "TSLA"
     fetcher = EDGARFetcher(ticker=ticker)
     statements = fetcher.fetch_markdown_statements()
     prompt = build_analysis_prompt(ticker, statements)
@@ -200,12 +244,9 @@ def analyze_ticker(ticker: str):
     student = MarginAnalyzer()
 
     program = MarsAnalysisProgram(planner, teacher, critic, student)
-    result = program(
+    results = program(
         context=prompt,
         base_question="Is the company improving its profitability?"
     )
-    logger.info(f"Result for stock {ticker}:\n{result}")
-
-    return result
-
-analyze_ticker("MSFT")
+    print(results)
+    logger.info(results)
