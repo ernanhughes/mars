@@ -1,12 +1,9 @@
-# Full MARS DSPy Pipeline - Improved Version
-
 import os
-from datetime import datetime
 from dotenv import load_dotenv
 import pandas as pd
-
+import socket
 import dspy
-from dspy import Signature, InputField, OutputField, Module, Predict, ChainOfThought
+from dspy import Signature, InputField, OutputField, Module, Predict, ChainOfThought, LM
 from edgar import Company, set_identity
 from edgar.xbrl2 import XBRL
 
@@ -15,8 +12,7 @@ litellm._turn_on_debug()
 import logging
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    handlers=[logging.FileHandler('financials.log', 'w', 'utf-8')])
-
+                    handlers=[logging.FileHandler('mars.log', 'w', 'utf-8')])
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +21,27 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 # ==== DSPy CONFIG ====
-dspy.configure(
-    lm=dspy.LM('ollama_chat/hf.co/ernanhughes/Fin-R1-Q8_0-GGUF',
-               api_base='http://localhost:11434',
-               api_key='')
-)
+# Check if running on Hugging Face Spaces
+running_in_spaces = os.getenv("SYSTEM") == "spaces" or "hf.space" in socket.getfqdn()
+if running_in_spaces:
+    print("🔍 Detected: Running in Hugging Face Spaces")
+    dspy.configure(
+        lm=LM(
+            model='SUFE-AIFLM-Lab/Fin-R1',
+            api_base='https://api-inference.huggingface.co/models',
+            api_key=os.getenv("HF_API_KEY")
+        )
+    )
+else:
+    print("💻 Detected: Running locally")
+    dspy.configure(
+        lm=LM(
+            model='ollama_chat/hf.co/ernanhughes/Fin-R1-Q8_0-GGUF',
+            api_base='http://localhost:11434',
+            api_key=''  # Ollama does not require key
+        )
+    )
+
 
 # ==== DSPy SIGNATURES ====
 class AnalyzeMargins(Signature):

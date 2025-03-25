@@ -1,12 +1,6 @@
-ipykernel
-haystack-ai
-ollama-haystack
-pgvector-haystack
 edgartools
 dspy
-dspy-ai[pgvector]
 python_dotenv
-sqlalchemy 
-psycopg2
 pandas
 rich
+gradio
